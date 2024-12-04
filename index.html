@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snakes and Ladders</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f0f0;
+            padding: 20px;
+        }
+
+        .game-container {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(10, 60px);
+            grid-template-rows: repeat(10, 60px);
+            gap: 2px;
+            background-color: #333;
+            padding: 10px;
+            border-radius: 10px;
+        }
+
+        .cell {
+            background-color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            position: relative;
+            border-radius: 5px;
+        }
+
+        .cell.snake {
+            background-color: #ffcdd2;
+        }
+
+        .cell.ladder {
+            background-color: #c8e6c9;
+        }
+
+        .player {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            position: absolute;
+        }
+
+        .player1 {
+            background-color: #f44336;
+            left: 10px;
+        }
+
+        .player2 {
+            background-color: #2196f3;
+            right: 10px;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: #45a049;
+        }
+
+        .status {
+            text-align: center;
+            margin: 10px 0;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .dice {
+            font-size: 48px;
+            margin: 10px 0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Snakes and Ladders</h1>
+    <div class="game-container">
+        <div class="board" id="board"></div>
+        <div class="controls">
+            <div class="status" id="status">Player 1's turn</div>
+            <div class="dice" id="dice">🎲</div>
+            <button id="rollButton" onclick="rollDice()">Roll Dice</button>
+            <button id="newGameButton" onclick="initializeGame()">New Game</button>
+        </div>
+    </div>
+
+    <script>
+        const boardSize = 100;
+        let currentPlayer = 1;
+        let playerPositions = [1, 1];
+        let gameEnded = false;
+
+        // Define snakes and ladders
+        const snakes = {
+            16: 6,
+            47: 26,
+            49: 11,
+            56: 53,
+            62: 19,
+            64: 60,
+            87: 24,
+            93: 73,
+            95: 75,
+            98: 78
+        };
+
+        const ladders = {
+            1: 38,
+            4: 14,
+            9: 31,
+            21: 42,
+            28: 84,
+            36: 44,
+            51: 67,
+            71: 91,
+            80: 100
+        };
+
+        function createBoard() {
+            const board = document.getElementById('board');
+            board.innerHTML = '';
+            
+            // Create cells in reverse order for each row
+            for (let row = 9; row >= 0; row--) {
+                for (let col = row % 2 === 0 ? 0 : 9; row % 2 === 0 ? col < 10 : col >= 0; row % 2 === 0 ? col++ : col--) {
+                    const cellNumber = (9 - row) * 10 + col + 1;
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.id = `cell-${cellNumber}`;
+                    
+                    // Add number to cell
+                    cell.innerHTML = `${cellNumber}`;
+                    
+                    // Color cells with snakes and ladders
+                    if (snakes[cellNumber]) {
+                        cell.classList.add('snake');
+                    } else if (ladders[cellNumber]) {
+                        cell.classList.add('ladder');
+                    }
+                    
+                    board.appendChild(cell);
+                }
+            }
+            updatePlayerPositions();
+        }
+
+        function updatePlayerPositions() {
+            // Remove all existing players
+            document.querySelectorAll('.player').forEach(player => player.remove());
+            
+            // Update positions
+            playerPositions.forEach((position, index) => {
+                const cell = document.getElementById(`cell-${position}`);
+                if (cell) {
+                    const player = document.createElement('div');
+                    player.className = `player player${index + 1}`;
+                    cell.appendChild(player);
+                }
+            });
+        }
+
+        function rollDice() {
+            if (gameEnded) return;
+            
+            const dice = document.getElementById('dice');
+            const rollButton = document.getElementById('rollButton');
+            rollButton.disabled = true;
+            
+            // Animate dice roll
+            let rolls = 0;
+            const rollInterval = setInterval(() => {
+                dice.textContent = Math.floor(Math.random() * 6) + 1;
+                rolls++;
+                
+                if (rolls >= 10) {
+                    clearInterval(rollInterval);
+                    const result = Math.floor(Math.random() * 6) + 1;
+                    dice.textContent = result;
+                    movePlayer(result);
+                }
+            }, 100);
+        }
+
+        function movePlayer(spaces) {
+            const playerIndex = currentPlayer - 1;
+            let newPosition = playerPositions[playerIndex] + spaces;
+            
+            // Check if player won
+            if (newPosition === boardSize) {
+                playerPositions[playerIndex] = newPosition;
+                updatePlayerPositions();
+                endGame();
+                return;
+            }
+            
+            // Prevent overshooting the board
+            if (newPosition > boardSize) {
+                newPosition = playerPositions[playerIndex];
+            }
+            
+            // Check for snakes and ladders
+            if (snakes[newPosition]) {
+                newPosition = snakes[newPosition];
+            } else if (ladders[newPosition]) {
+                newPosition = ladders[newPosition];
+            }
+            
+            playerPositions[playerIndex] = newPosition;
+            updatePlayerPositions();
+            
+            // Check for win
+            if (newPosition === boardSize) {
+                endGame();
+                return;
+            }
+            
+            // Switch players
+            currentPlayer = currentPlayer === 1 ? 2 : 1;
+            document.getElementById('status').textContent = `Player ${currentPlayer}'s turn`;
+            document.getElementById('rollButton').disabled = false;
+        }
+
+        function endGame() {
+            gameEnded = true;
+            document.getElementById('status').textContent = `Player ${currentPlayer} wins! 🎉`;
+            document.getElementById('rollButton').disabled = true;
+        }
+
+        function initializeGame() {
+            currentPlayer = 1;
+            playerPositions = [1, 1];
+            gameEnded = false;
+            document.getElementById('status').textContent = "Player 1's turn";
+            document.getElementById('rollButton').disabled = false;
+            document.getElementById('dice').textContent = '🎲';
+            createBoard();
+        }
+
+        // Initialize game when page loads
+        initializeGame();
+    </script>
+</body>
+</html>
